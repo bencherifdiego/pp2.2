@@ -214,10 +214,12 @@ void Game::Update(float deltaTime)
         smoke.Tick();
     }
 
-	tbb::parallel_for(tbb::blocked_range<int>(0, rockets.size()), [&](tbb::blocked_range<int> r) 
+	//update rockets
+    tbb::parallel_for(tbb::blocked_range<int>(0, rockets.size()), [&](tbb::blocked_range<int> r)
 	{
-            for (int i = r.begin(); i < r.end(); i++)
+        for (int i = r.begin(); i < r.end(); i++)
         {
+            lock_guard<recursive_mutex> lock(mutex);
             rockets[i].Tick();
 
             //Check if rocket collides with enemy tank, spawn explosion and if tank is destroyed spawn a smoke plume
@@ -263,8 +265,7 @@ void Game::Update(float deltaTime)
     //}
 
     //Remove exploded rockets with remove erase idiom
-    rockets.erase(std::remove_if(rockets.begin(), rockets.end(), [](const Rocket& rocket) {
-        return !rocket.active; }), rockets.end());
+    rockets.erase(std::remove_if(rockets.begin(), rockets.end(), [](const Rocket& rocket) { return !rocket.active; }), rockets.end());
 
     //Update particle beams
     for (Particle_beam& particle_beam : particle_beams)
@@ -290,8 +291,7 @@ void Game::Update(float deltaTime)
         explosion.Tick();
     }
 
-    explosions.erase(std::remove_if(explosions.begin(), explosions.end(), [](const Explosion& explosion) {
-        return explosion.done(); }), explosions.end());
+    explosions.erase(std::remove_if(explosions.begin(), explosions.end(), [](const Explosion& explosion) { return explosion.done(); }), explosions.end());
 }
 
 void Game::Draw()
