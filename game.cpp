@@ -77,6 +77,7 @@ void Game::Init()
         sorted_tanks.push_back(&tanks.back());
         grid.add(&tanks.back());
     }
+
     //Spawn red tanks
     for (int i = 0; i < NUM_TANKS_RED; i++)
     {
@@ -213,31 +214,57 @@ void Game::Update(float deltaTime)
         smoke.Tick();
     }
 
-    //Update rockets
-    for (Rocket& rocket : rockets)
-    {
-        rocket.Tick();
-
-        //Check if rocket collides with enemy tank, spawn explosion and if tank is destroyed spawn a smoke plume
-        for (Tank& tank : tanks)
+	tbb::parallel_for(tbb::blocked_range<int>(0, rockets.size()), [&](tbb::blocked_range<int> r) 
+	{
+            for (int i = r.begin(); i < r.end(); i++)
         {
-            if (tank.active && (tank.allignment != rocket.allignment) && rocket.Intersects(tank.position, tank.collision_radius))
+            rockets[i].Tick();
+
+            //Check if rocket collides with enemy tank, spawn explosion and if tank is destroyed spawn a smoke plume
+            for (Tank& tank : tanks)
             {
-                explosions.push_back(Explosion(&explosion, tank.position));
-
-                if (tank.hit(ROCKET_HIT_VALUE))
+                if (tank.active && (tank.allignment != rockets[i].allignment) && rockets[i].Intersects(tank.position, tank.collision_radius))
                 {
-                    smokes.push_back(Smoke(smoke, tank.position - vec2(0, 48)));
-                }
+                    explosions.push_back(Explosion(&explosion, tank.position));
 
-                rocket.active = false;
-                break;
+                    if (tank.hit(ROCKET_HIT_VALUE))
+                    {
+                        smokes.push_back(Smoke(smoke, tank.position - vec2(0, 48)));
+                    }
+
+                    rockets[i].active = false;
+                    break;
+                }
             }
         }
-    }
+    });
+
+    //Update rockets
+    //for (Rocket& rocket : rockets)
+    //{
+    //    rocket.Tick();
+
+    //    //Check if rocket collides with enemy tank, spawn explosion and if tank is destroyed spawn a smoke plume
+    //    for (Tank& tank : tanks)
+    //    {
+    //        if (tank.active && (tank.allignment != rocket.allignment) && rocket.Intersects(tank.position, tank.collision_radius))
+    //        {
+    //            explosions.push_back(Explosion(&explosion, tank.position));
+
+    //            if (tank.hit(ROCKET_HIT_VALUE))
+    //            {
+    //                smokes.push_back(Smoke(smoke, tank.position - vec2(0, 48)));
+    //            }
+
+    //            rocket.active = false;
+    //            break;
+    //        }
+    //    }
+    //}
 
     //Remove exploded rockets with remove erase idiom
-    rockets.erase(std::remove_if(rockets.begin(), rockets.end(), [](const Rocket& rocket) { return !rocket.active; }), rockets.end());
+    rockets.erase(std::remove_if(rockets.begin(), rockets.end(), [](const Rocket& rocket) {
+        return !rocket.active; }), rockets.end());
 
     //Update particle beams
     for (Particle_beam& particle_beam : particle_beams)
@@ -263,7 +290,8 @@ void Game::Update(float deltaTime)
         explosion.Tick();
     }
 
-    explosions.erase(std::remove_if(explosions.begin(), explosions.end(), [](const Explosion& explosion) { return explosion.done(); }), explosions.end());
+    explosions.erase(std::remove_if(explosions.begin(), explosions.end(), [](const Explosion& explosion) {
+        return explosion.done(); }), explosions.end());
 }
 
 void Game::Draw()
